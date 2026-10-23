@@ -12,7 +12,7 @@ def env_bool(name, default=False):
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-change-me-before-hosting")
 DEBUG = env_bool("DJANGO_DEBUG", True)
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,.vercel.app").split(",") if host.strip()]
 INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
