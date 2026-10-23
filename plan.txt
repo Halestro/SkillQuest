@@ -1,31 +1,46 @@
 ## 15-step build plan
 
+
 1. **Choose one course topic.** Pick something small enough to teach in 5–10 minutes, such as beginner Python loops.
+
 
 2. **Define the demo learner.** Write down who they are, what they want to learn, and what “beginner,” “intermediate,” or “advanced” means for your demo.
 
+
 3. **Write the demo journey.** The learner chooses a level, opens a lesson, answers a challenge, gets feedback, and sees their next step adapt.
+
 
 4. **Sketch the screens.** Plan a welcome screen, journey map, lesson screen, and result screen.
 
+
 5. **Choose a desktop presentation.** Start with a desktop-sized web app in a browser. Consider packaging it as an installable desktop app only if the hackathon requires that.
+
 
 6. **Define the course data format.** Decide what each lesson needs: title, explanation, question, choices, answer, hint, and difficulty.
 
-7. **Decide what MongoDB stores.** For example, store generated course documents and lesson content there. Decide where learner progress lives, and avoid duplicating the same data across databases.
+
+7. **Plan the Supabase data model.** Use Django ORM models backed by Supabase Postgres for generated roadmaps, courses, attempts, mastery, and learner progress. Keep course content and progress in one database.
+
 
 8. **Create a fixed sample course.** Write a few lessons and questions yourself. This gives you reliable content to build against and a fallback for the demo.
 
+
 9. **Build the Django routes or APIs.** Add the endpoints needed to start a course, fetch a lesson, submit an answer, and retrieve progress.
 
-10. **Connect Django to MongoDB.** Use AI to help with the connection and document operations. First verify that Django can save a course and fetch it again.
+
+10. **Connect Django to Supabase Postgres.** Put the Supabase connection string in the server-side `DATABASE_URL` setting with SSL enabled, run Django migrations, then verify Django can save and fetch a course.
+
 
 11. **Build the frontend screens.** Use AI to implement the layouts from your sketches. Start with the journey map and lesson screen.
 
+
 12. **Connect the frontend to Django.** Wire buttons and forms to the Django routes. Keep database calls and model calls on the Django side.
+
 
 13. **Add course generation.** Ask the model for a small course in your chosen data format. Validate its response and load the fixed sample course if generation fails.
 
+
 14. **Add adaptation and game progress.** Correct answers can unlock a harder next step; incorrect answers can show a hint or easier practice. Update the journey map, XP, and completion badge.
+
 
 15. **Rehearse the demo.** Walk through the full learner journey, check the fallback course and reset path, and prepare a short explanation of how the next lesson responds to the learner’s answers.
