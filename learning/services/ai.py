@@ -74,60 +74,52 @@ def _decode_json_object(content):
     raise ValueError("The model response did not contain a complete JSON object.")
 
 
-def _ask_deepseek(system, user, schema, max_tokens):
+def _ask_gemini(system, user, schema, max_tokens):
+    """Use Google's hosted Gemini API and ask it for schema-shaped JSON."""
     payload = {
-        "model": settings.HF_MODEL,
-        "stream": False,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {"name": "skillquest_output", "strict": True, "schema": schema},
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": user}]}],
+        "generationConfig": {
+            "temperature": 0.15,
+            "maxOutputTokens": max_tokens,
+            "responseMimeType": "application/json",
+            "responseSchema": schema,
         },
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "temperature": 0.15,
-        "max_tokens": max_tokens,
     }
-    endpoint = settings.HF_API_BASE_URL + "/chat/completions"
-
-    def send_request(request_payload):
-        request = urllib.request.Request(
-            endpoint, data=json.dumps(request_payload).encode(),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {settings.HF_TOKEN}",
-            }, method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=settings.HF_API_TIMEOUT) as response:
-                return json.loads(response.read().decode())
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode(errors="replace")[:700]
-            # Some routed providers do not expose constrained JSON mode. Retry
-            # once with the same compact JSON-only instructions in that case.
-            if exc.code in {400, 422} and "response_format" in request_payload and any(
-                word in detail.lower() for word in ("response_format", "json mode", "json_object", "json_schema", "structured output")
-            ):
-                fallback_payload = {key: value for key, value in request_payload.items() if key != "response_format"}
-                fallback_payload["messages"] = [dict(message) for message in request_payload["messages"]]
-                fallback_payload["messages"][0]["content"] += (
-                    "\n\nReturn JSON matching this schema exactly:\n" + json.dumps(schema, separators=(",", ":"))
-                )
-                return send_request(fallback_payload)
-            raise RuntimeError(f"Hugging Face Inference API returned HTTP {exc.code}: {detail}") from exc
-        except (urllib.error.URLError, TimeoutError) as exc:
-            raise RuntimeError(f"Could not connect to the Hugging Face Inference API: {exc}") from exc
-
+    endpoint = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{settings.GEMINI_MODEL}:generateContent"
+    )
+    request = urllib.request.Request(
+        endpoint, data=json.dumps(payload).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": settings.GEMINI_API_KEY,
+        }, method="POST",
+    )
     try:
-        result = send_request(payload)
-        content = result["choices"][0]["message"]["content"]
-        if not isinstance(content, str):
+        with urllib.request.urlopen(request, timeout=settings.AI_API_TIMEOUT) as response:
+            result = json.loads(response.read().decode())
+        parts = result["candidates"][0]["content"]["parts"]
+        text_parts = [
+            part["text"] for part in parts
+            if isinstance(part, dict) and isinstance(part.get("text"), str) and not part.get("thought")
+        ]
+        content = "\n".join(text_parts)
+        if not content:
             raise TypeError("The API response did not include text content.")
         return _decode_json_object(content)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:700]
+        raise RuntimeError(f"Gemini API returned HTTP {exc.code}: {detail}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise RuntimeError(f"Could not connect to the Gemini API: {exc}") from exc
     except (KeyError, IndexError, TypeError, json.JSONDecodeError, ValueError) as exc:
-        raise RuntimeError(f"DeepSeek returned an unusable response: {exc}") from exc
+        raise RuntimeError(f"Gemini returned an unusable response: {exc}") from exc
 
 
 def _ask_local_qwen(system, user, schema, max_tokens):
-    """Use the installed local model if no Hugging Face token is configured."""
+    """Use the installed local model when the Gemini API key is not configured."""
     payload = {
         "model": settings.OLLAMA_MODEL,
         "stream": False,
@@ -140,7 +132,7 @@ def _ask_local_qwen(system, user, schema, max_tokens):
         headers={"Content-Type": "application/json"}, method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=settings.HF_API_TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=settings.AI_API_TIMEOUT) as response:
             result = json.loads(response.read().decode())
         content = result["message"]["content"]
         if not isinstance(content, str):
@@ -151,16 +143,16 @@ def _ask_local_qwen(system, user, schema, max_tokens):
         raise RuntimeError(f"Local Ollama returned HTTP {exc.code}: {detail}") from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         raise RuntimeError(
-            f"No Hugging Face token is configured and local Ollama is unreachable at {settings.OLLAMA_BASE_URL}. "
-            f"Start Ollama with {settings.OLLAMA_MODEL} available, or configure HF_TOKEN. Details: {exc}"
+            f"GEMINI_API_KEY is not configured and local Ollama is unreachable at {settings.OLLAMA_BASE_URL}. "
+            f"Start Ollama with {settings.OLLAMA_MODEL} available, or configure GEMINI_API_KEY. Details: {exc}"
         ) from exc
     except (KeyError, IndexError, TypeError, json.JSONDecodeError, ValueError) as exc:
         raise RuntimeError(f"Local Qwen returned an unusable response: {exc}") from exc
 
 
 def _ask_model(system, user, schema, max_tokens):
-    if settings.HF_TOKEN:
-        return _ask_deepseek(system, user, schema, max_tokens)
+    if settings.GEMINI_API_KEY:
+        return _ask_gemini(system, user, schema, max_tokens)
     return _ask_local_qwen(system, user, schema, max_tokens)
 
 
@@ -349,10 +341,10 @@ def validate_roadmap(roadmap):
 
 def gamify_roadmap(roadmap):
     # Mission generation should never block the learner from starting. When a
-    # hosted inference token is absent, turn the approved roadmap into a small
+    # hosted API key is absent, turn the approved roadmap into a small
     # playable mission set locally instead of asking Ollama for a second, large
     # structured response (which can take minutes on modest hardware).
-    if not settings.HF_TOKEN:
+    if not settings.GEMINI_API_KEY:
         return _build_roadmap_missions(roadmap)
 
     system = (
