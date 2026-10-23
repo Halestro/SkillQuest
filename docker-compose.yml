@@ -1,0 +1,15 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SQLITE_PATH: /app/data/db.sqlite3
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+    ports:
+      - "8000:8000"
+    volumes:
+      - sqlite_data:/app/data
+
+volumes:
+  sqlite_data:
