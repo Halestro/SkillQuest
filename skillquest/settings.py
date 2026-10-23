@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
+
+import dj_database_url
 from dotenv import load_dotenv
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -38,8 +41,17 @@ TEMPLATES = [{
     ]},
 }]
 WSGI_APPLICATION = "skillquest.wsgi.application"
-# SQLite stores roadmaps, course documents, and learner progress in one local database.
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": os.getenv("SQLITE_PATH") or str(BASE_DIR / "db.sqlite3")}}
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required. Set it to your Supabase Postgres connection string.")
+
+DATABASE_CONFIG = dj_database_url.parse(
+    DATABASE_URL,
+    conn_max_age=600,
+    conn_health_checks=True,
+)
+DATABASE_CONFIG.setdefault("OPTIONS", {}).setdefault("sslmode", "require")
+DATABASES = {"default": DATABASE_CONFIG}
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
