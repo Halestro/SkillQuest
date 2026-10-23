@@ -1,0 +1,38 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18"><title>{% block title %}SkillQuest · ORBIT-9{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'learning/tailwind.css' %}?v=1"><link rel="stylesheet" href="{% static 'learning/app.css' %}?v=3"><link rel="stylesheet" href="{% static 'learning/coverage.css' %}?v=3"><link rel="stylesheet" href="{% static 'learning/copilot.css' %}?v=1">
+</head>
+<body>
+  <div class="starfield" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="{% url 'home' %}" aria-label="SkillQuest home"><span class="brand-mark"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M18 3 21.6 14.4 33 18l-11.4 3.6L18 33l-3.6-11.4L3 18l11.4-3.6L18 3Z"/><circle cx="18" cy="18" r="3"/></svg></span><span>SKILLQUEST <small>ORBIT-9</small></span></a>
+    <div class="topbar-right"><span class="ship-status"><i></i> DISTRESS SIGNAL · ACTIVE</span><a class="nav-link" href="{% url 'home' %}"><span class="nav-icon">⌂</span> BRIDGE</a></div>
+  </header>
+  <main class="shell">
+    {% if messages %}<div class="messages">{% for message in messages %}<div class="message {{ message.tags }}"><span class="message-mark">{% if 'error' in message.tags %}⚠{% else %}✦{% endif %}</span>{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% if copilot %}
+  <details class="copilot-dock copilot-{{ copilot.mood }}" {% if copilot.open %}open{% endif %}>
+    <summary class="copilot-trigger" aria-label="Open NOVA, your ship co-pilot">
+      <span class="copilot-avatar" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M20 3 34 11v16l-14 9L6 27V11L20 3Z"/><path d="M12 16a8 8 0 0 1 16 0v7a8 8 0 0 1-16 0v-7Z"/><path d="M15 19h.1M25 19h.1M16 25c2.5 2 5.5 2 8 0M20 8v3M8 19h4m16 0h4"/></svg><i></i></span>
+      <span class="copilot-trigger-copy"><b>NOVA <small>CO-PILOT</small></b><span>{{ copilot.status }}</span></span>
+      <span class="copilot-chevron" aria-hidden="true">⌃</span>
+    </summary>
+    <section class="copilot-panel" aria-live="polite" aria-label="NOVA's message">
+      <div class="copilot-panel-head"><span>FLIGHT DECK · PRIVATE CHANNEL</span><i>● LIVE</i></div>
+      <p class="copilot-message">{{ copilot.message }}</p>
+      {% if copilot.hint %}<div class="copilot-hint"><span>TACTICAL HINT</span><p>{{ copilot.hint }}</p></div>{% endif %}
+      <div class="copilot-signoff"><span>— NOVA</span><span>HERE WITH YOU, CAPTAIN</span></div>
+    </section>
+  </details>
+  {% endif %}
+  <footer class="footer"><span><b>ORBIT-9</b> · LEARNING FLIGHT RECORDER</span><span>LEARN THE SYSTEM · FIX THE SHIP · FIND YOUR WAY HOME</span></footer>
+  <script src="{% static 'learning/bridge.js' %}" defer></script>
+</body></html>
